@@ -5,6 +5,7 @@ const bcrypt = require("bcrypt");
 const randomString = require("randomstring");
 
 const helpers = require("../helpers");
+const config = require("../config");
 
 const Users = require("../models/Users");
 
@@ -77,8 +78,7 @@ router.post(
 
       // Prepare user object and save
       userData = req.body;
-      const saltRounds = 10;
-      const salt = await bcrypt.genSalt(saltRounds);
+      const salt = await bcrypt.genSalt(config.saltRounds);
       userData.password = await bcrypt.hash(userData.password, salt);
       userData.token = token;
       await Users.create(userData);
@@ -115,9 +115,10 @@ router.all("/verify/:token", async (req, res) => {
 
     const createDate = userData._id.getTimestamp();
     const currentDate = new Date(Date.now());
-    const diff = Math.floor((currentDate - createDate) / 1000 / 60);
 
-    if (diff > 1) {
+    const minutesElapsed = Math.floor((currentDate - createDate) / 1000 / 60);
+
+    if (minutesElapsed > config.verifyTimeOut) {
       res.send("<h3>The Verification Link is Invalid</h3>");
     } else {
       await Users.updateOne(
@@ -146,6 +147,7 @@ router.all("/reverify/:email", async (req, res) => {
       "-password"
     );
 
+    // If the user does not exists
     if (!userData) {
       res.send("<h1>User does not Exist. Please register.</h1>");
       return;
